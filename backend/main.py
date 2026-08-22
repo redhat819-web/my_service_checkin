@@ -128,3 +128,27 @@ def get_stats():
     by_region.sort(key=lambda x: x["count"], reverse=True)
 
     return {"total": total, "user_count": user_count, "overall_avg": overall_avg, "by_region": by_region}
+
+
+@app.delete("/records/{record_id}")
+def delete_record(record_id: str):
+    records = []
+    if DATA_FILE.exists():
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    records.append(json.loads(line))
+
+    if not any(r["id"] == record_id for r in records):
+        raise HTTPException(status_code=404, detail="record not found")
+
+    remaining = [r for r in records if r["id"] != record_id]
+
+    tmp_file = DATA_FILE.with_suffix(".tmp")
+    with open(tmp_file, "w", encoding="utf-8") as f:
+        for r in remaining:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    tmp_file.replace(DATA_FILE)
+
+    return {"deleted": record_id}
