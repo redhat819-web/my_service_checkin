@@ -92,11 +92,27 @@ if st.session_state.get("query_name"):
     except requests.exceptions.RequestException:
         st.error("백엔드에 연결할 수 없습니다. 터미널 1에서 백엔드가 켜져 있는지 확인하세요.")
 
+with st.sidebar:
+    st.subheader("검색 조건")
+    filter_region = st.selectbox("지역", ["전체"] + list(locations.keys()))
+    filter_min_score = st.slider("최소 만족도", 1, 5, 1)
+    filter_keyword = st.text_input("메모 검색")
+
+params = {}
+if filter_region != "전체":
+    params["region"] = filter_region
+if filter_min_score > 1:
+    params["min_score"] = filter_min_score
+if filter_keyword:
+    params["keyword"] = filter_keyword
+
 st.subheader("전체 기록")
 try:
-    records_resp = requests.get(f"{BACKEND_URL}/records", timeout=5).json()
+    records_resp = requests.get(f"{BACKEND_URL}/records", params=params, timeout=5).json()
+    with st.sidebar:
+        st.write(f"조건에 맞는 기록: {records_resp['count']}건")
     if records_resp["count"] == 0:
-        st.info("아직 기록이 없습니다. 위에서 첫 기록을 남겨보세요.")
+        st.warning("조건에 맞는 기록이 없습니다. 조건을 완화해보세요.")
     else:
         st.dataframe(pd.DataFrame(records_resp["records"]))
 except requests.exceptions.RequestException:

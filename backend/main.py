@@ -1,3 +1,5 @@
+import csv
+import io
 import json
 import random
 import uuid
@@ -5,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 app = FastAPI(title="Location API")
@@ -85,6 +88,39 @@ def get_records(region: str | None = None, min_score: int | None = None, keyword
         records = [r for r in records if keyword.lower() in r["memo"].lower()]
 
     return {"count": len(records), "records": records}
+
+
+@app.get("/records/export.csv")
+def export_records_csv(region: str | None = None, min_score: int | None = None, keyword: str | None = None):
+    records = []
+    if DATA_FILE.exists():
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    records.append(json.loads(line))
+    records.reverse()
+
+    if region is not None:
+        records = [r for r in records if r["region"] == region]
+    if min_score is not None:
+        records = [r for r in records if r["score"] >= min_score]
+    if keyword is not None:
+        records = [r for r in records if keyword.lower() in r["memo"].lower()]
+
+    columns = ["id", "user_name", "region", "score", "memo", "lat", "lon", "created_at"]
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=columns)
+    writer.writeheader()
+    for r in records:
+        writer.writerow({col: r[col] for col in columns})
+
+    csv_bytes = output.getvalue().encode("utf-8-sig")
+    return StreamingResponse(
+        io.BytesIO(csv_bytes),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=records.csv"},
+    )
 
 
 @app.get("/records/user/{user_name}")
