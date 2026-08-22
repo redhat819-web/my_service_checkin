@@ -45,6 +45,19 @@ if submitted:
         except requests.exceptions.RequestException:
             st.error("백엔드에 연결할 수 없습니다. 터미널 1에서 백엔드가 켜져 있는지 확인하세요.")
 
+st.subheader("전체 현황")
+try:
+    stats_resp = requests.get(f"{BACKEND_URL}/stats", timeout=5).json()
+    scol1, scol2, scol3 = st.columns(3)
+    scol1.metric("총 기록 수", stats_resp["total"])
+    scol2.metric("참여자 수", stats_resp["user_count"])
+    scol3.metric("전체 평균 만족도", stats_resp["overall_avg"])
+    if stats_resp["by_region"]:
+        region_df = pd.DataFrame(stats_resp["by_region"]).set_index("region")
+        st.bar_chart(region_df["avg_score"])
+except requests.exceptions.RequestException:
+    st.error("백엔드에 연결할 수 없습니다. 터미널 1에서 백엔드가 켜져 있는지 확인하세요.")
+
 st.subheader("내 기록 조회")
 query_name = st.text_input("조회할 이름")
 if st.button("내 기록 보기"):
