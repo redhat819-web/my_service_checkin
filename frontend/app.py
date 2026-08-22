@@ -16,6 +16,45 @@ except requests.exceptions.RequestException as e:
     st.error(f"백엔드 연결 실패: {e}")
     st.stop()
 
+with st.form("record_form"):
+    record_name = st.text_input("이름")
+    record_region = st.selectbox("지역", list(locations.keys()))
+    record_score = st.slider("만족도", 1, 5, 3)
+    record_memo = st.text_input("한 줄 메모")
+    submitted = st.form_submit_button("기록 저장")
+
+if submitted:
+    if not record_name:
+        st.warning("이름을 입력해주세요")
+    else:
+        try:
+            resp = requests.post(
+                f"{BACKEND_URL}/records",
+                json={
+                    "user_name": record_name,
+                    "region": record_region,
+                    "score": record_score,
+                    "memo": record_memo,
+                },
+                timeout=5,
+            )
+            if resp.status_code == 201:
+                st.success(f"저장 완료! (id: {resp.json()['id']})")
+            else:
+                st.error(resp.json().get("detail"))
+        except requests.exceptions.RequestException:
+            st.error("백엔드에 연결할 수 없습니다. 터미널 1에서 백엔드가 켜져 있는지 확인하세요.")
+
+st.subheader("전체 기록")
+try:
+    records_resp = requests.get(f"{BACKEND_URL}/records", timeout=5).json()
+    if records_resp["count"] == 0:
+        st.info("아직 기록이 없습니다. 위에서 첫 기록을 남겨보세요.")
+    else:
+        st.dataframe(pd.DataFrame(records_resp["records"]))
+except requests.exceptions.RequestException:
+    st.error("백엔드에 연결할 수 없습니다. 터미널 1에서 백엔드가 켜져 있는지 확인하세요.")
+
 city = st.selectbox("지역 선택", list(locations.keys()))
 n_points = st.slider("랜덤 포인트 개수", 10, 200, 50)
 
